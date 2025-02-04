@@ -14,6 +14,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# removing httpx logging
+httpx_logger = logging.getLogger("httpx")
+httpx_logger.setLevel(logging.WARNING)
+
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM")
 TIMEOUT = 50 
 
