@@ -140,7 +140,7 @@ def main():
         # Create and configure the application
         app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
         
-        # Add handlers
+        # Adding handlers
         app.add_handler(CommandHandler("start", start))
         
         # Add message handlers
@@ -148,10 +148,10 @@ def main():
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & weather_filter, weather_forecast))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message_with_timeout))
         
-        # Add error handler
+        # Add error handler here
         app.add_error_handler(error_handler)
         
-        # Start the bot
+        # Starting the bot here
         logger.info("Starting Agribot...")
         app.run_polling(drop_pending_updates=True)
         
