@@ -39,7 +39,8 @@ def extract_location(prompt):
     return words[-1].strip() if words else None
 
 
-st.title("Agri-Bot")
+st.title("🌱Agri-Bot")
+st.write("Your personal farming assistant🚜")
 
 with st.expander("About Agribot"):
     st.write('''
