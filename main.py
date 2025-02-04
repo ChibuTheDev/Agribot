@@ -16,6 +16,25 @@ def response_generator(prompt, history):
 
 st.title("Agri-Bot")
 
+with st.expander("About Agribot"):
+    st.write('''
+        Hi there! My name is **Agribot**, and I'm here to help you with all things farming! 🌱
+
+        Here's what I can do for you:
+        - **Crop Recommendations and Management**: Get advice on the best crops to grow and how to manage them.
+        - **Farm Budget Planning**: Help you calculate expenses and plan your farm budget.
+        - **Pest and Disease Control**: Tips to protect your crops from pests and diseases.
+        - **Soil Health Tips**: Improve your soil for better yields.
+        - **Livestock Management**: Guidance on raising healthy livestock.
+        - **Sustainable Farming Practices**: Learn eco-friendly farming methods.
+
+        Feel free to ask me anything about agriculture, and I'll do my best to assist you. 😊
+
+        **Bonus**: I can also provide a 5-day weather forecast if you ask nicely! 🌦️
+    ''')
+
+
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
