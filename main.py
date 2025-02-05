@@ -3,11 +3,12 @@ import sqlite3
 from passlib.hash import sha256_crypt
 from chat import get_chat_response
 from weather_utils import get_5day_forecast
-import re
 
 # Database setup (SQLite)
 conn = sqlite3.connect('users.db')
 cursor = conn.cursor()
+
+# Create users table
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -16,12 +17,43 @@ cursor.execute('''
         location TEXT
     )
 ''')
+
+# makeing a table for messages
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        role TEXT NOT NULL,
+        message TEXT NOT NULL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+''')
+
 conn.commit()
 conn.close()
 
 def is_weather_query(prompt):
     weather_keywords = ["weather", "forecast", "temperature", "rain", "sun", "cloud", "humidity"]
     return any(keyword in prompt.lower() for keyword in weather_keywords)
+
+def save_message(user_id, role, message):
+    """Save a chat message to the database."""
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO messages (user_id, role, message) VALUES (?, ?, ?)", (user_id, role, message))
+    conn.commit()
+    conn.close()
+
+def load_past_messages(user_id):
+    """Retrieve past chat messages from the database."""
+    conn = sqlite3.connect('users.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT role, message FROM messages WHERE user_id = ? ORDER BY timestamp", (user_id,))
+    messages = cursor.fetchall()
+    conn.close()
+    
+    return [{"role": row[0], "parts": row[1]} for row in messages]
 
 # --- Streamlit App ---
 st.title("🌱Agri-Bot")
@@ -71,8 +103,9 @@ if st.session_state.user_id is None:  # User not logged in
                 st.session_state.user_id = user[0]
                 st.session_state.user_location = user[2]
                 st.session_state.username = username
+                st.session_state.messages = load_past_messages(user[0])  # Loading past messages
                 st.success("Logged in successfully!")
-                st.rerun()  # Use st.rerun()
+                st.rerun()
             else:
                 st.error("Invalid username or password.")
 
@@ -87,7 +120,7 @@ else:  # User is logged in
     if "logout" in st.session_state and st.session_state.logout:
         del st.session_state.logout
         st.session_state.messages = []  # Clear messages on logout
-        st.rerun()  # Use st.rerun()
+        st.rerun()
 
     # --- Chat and Weather ---
     with st.expander("About Agribot"):
@@ -110,12 +143,16 @@ else:  # User is logged in
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+    # showing past messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["parts"])
 
+    # Chat Input
     if prompt := st.chat_input("Ask me anything about Agriculture!"):
         st.session_state.messages.append({"role": "user", "parts": prompt})
+        save_message(st.session_state.user_id, "user", prompt)  # Saves user message
+
         with st.chat_message("user"):
             st.markdown(prompt)
 
@@ -124,29 +161,17 @@ else:  # User is logged in
                 try:
                     location = st.session_state.user_location
                     if not location:
-                        st.markdown("Location not set. Please update your profile.")
-                        st.session_state.messages.append({"role": "assistant", "parts": "Location not set. Please update your profile."})
+                        response = "Location not set. Please update your profile."
                     else:
-                        forecasts = get_5day_forecast(location)
-                        if isinstance(forecasts, str):
-                            st.markdown(forecasts)
-                            st.session_state.messages.append({"role": "assistant", "parts": forecasts})
-                        else:
-                            st.markdown(forecasts)
-                            st.session_state.messages.append({"role": "assistant", "parts": forecasts})
-                            if "breakdown" in prompt.lower():
-                                gemini_prompt = f"Here is the 5-day weather forecast for {location}:\n\n{forecasts}\n\nCan you provide a detailed explanation of this weather data, including what each column represents and any notable trends or observations?"
-                                gemini_response, _ = get_chat_response(gemini_prompt, st.session_state.messages)
-                                st.markdown(gemini_response)
-                                st.session_state.messages.append({"role": "assistant", "parts": gemini_response})
+                        response = get_5day_forecast(location)
                 except Exception as e:
-                    st.error(f"An error occurred: {e}")
-                    st.session_state.messages.append({"role": "assistant", "parts": f"An error occurred: {e}"})
+                    response = f"An error occurred: {e}"
             else:
                 try:
-                    response, updated_history = get_chat_response(prompt, st.session_state.messages)
-                    st.markdown(response)
-                    st.session_state.messages.append({"role": "assistant", "parts": response})
+                    response, _ = get_chat_response(prompt, st.session_state.messages)
                 except Exception as e:
-                    st.error(f"An error occurred: {e}")
-                    st.session_state.messages.append({"role": "assistant", "parts": f"An error occurred: {e}"})
+                    response = f"An error occurred: {e}"
+
+            st.markdown(response)
+            st.session_state.messages.append({"role": "assistant", "parts": response})
+            save_message(st.session_state.user_id, "assistant", response)  # Save bot response
